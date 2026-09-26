@@ -47,8 +47,8 @@ We go further in four ways:
 | | MLSys·im | hello-mlsys |
 | --- | --- | --- |
 | **Ground truth** | Analytical; its own docs put well-calibrated cases at ±15–30%, and production serving can be 1.5–2× slower | Every prediction is checked on AMD hardware. You measure the gap and fit **AMD calibration profiles** (utilisation, bandwidth efficiency, fixed overheads) per hardware tier. Missing AMD devices are added to the hardware registry and offered upstream |
-| **AMD-specific system questions** | Mostly datacenter GPUs | Questions that only show up on AMD's range: NPU vs. integrated GPU vs. CPU on one laptop chip, large CPU–GPU shared memory on Ryzen AI Max (capacity without bandwidth), and very large HBM on Instinct (big models on one GPU, no tensor parallelism needed) |
-| **Real optimisation** | Analyse a given configuration | Actually change the system (precision, context, batching, speculative decoding, parallelism, placement, tier mix) and see the real gain or loss |
+| **AMD-specific system questions** | Mostly datacenter GPUs | Questions that AMD's range makes concrete: small memory on laptops and consumer Radeon cards, large CPU–GPU shared memory on Ryzen AI Max (capacity without bandwidth), and very large HBM on Instinct (big models on one GPU, no tensor parallelism needed) |
+| **Real optimisation** | Analyse a given configuration | Actually change the system (precision, context, batching, speculative decoding, parallelism, tier mix) and see the real gain or loss |
 | **Human–AI teaming** | None | AI proposes system designs and next experiments; you set constraints, prune with the model, verify on hardware and decide. The decision log is graded |
 
 In short: hello-rocm teaches you to **run** a model on AMD, hello-gpu teaches you to make **one kernel** fast, MLSys·im teaches you to **predict** a system, and hello-mlsys teaches you to **design and prove a whole system**, together with AI, on AMD hardware.
@@ -104,7 +104,7 @@ Every decision goes into a decision log, which is graded alongside your result a
 
 | Tier | Hardware | System questions it raises |
 | --- | --- | --- |
-| T1 | Ryzen AI PC (NPU + integrated GPU + CPU) | Which engine should run which phase; energy per token; tight memory |
+| T1 | Ryzen AI PC (integrated GPU) | Small models on a laptop; energy per token; tight shared memory |
 | T2 | Radeon discrete GPU | Consumer VRAM limits; what quantisation buys; single-GPU serving |
 | T3 | Ryzen AI Max (large CPU–GPU shared memory) | Capacity without matching bandwidth: big models fit, but how fast do they decode? |
 | T4 | Instinct MI300-class (cloud) | Large HBM capacity and bandwidth; one-GPU vs. multi-GPU designs; cost per token at scale |
@@ -120,9 +120,9 @@ No device? AMD cloud access covers every week. Supported hardware list: **TBD**.
 | 2 | Where did the time go? Calibrating on AMD | Break a model's run time into compute, memory, overhead and idle, and fit a per-tier calibration profile | Calibration profile with held-out error; case cards | T1–T4 |
 | 3 | Memory is a design decision | Predict what fits where for inference and training, and show how precision changes a design, not just its speed | "What fits where" matrix; training-memory prediction; case cards | T2, T3, T4 |
 | 4 | Serving is a queueing system | Predict the throughput knee and p99 of a serving system, and derive what an SLA requires | p99 and knee report; case cards | T4 |
-| 5 | Scale, cost and energy | Model communication, cost per token and energy per token, and find where adding GPUs stops helping | Scale-out and cost memo; **Part A gate** | T1, T4 |
+| 5 | Scale, cost and energy | Model communication, cost per token and energy per token, and find where adding GPUs stops helping | Scale-out and cost memo; **Part A gate** | T1, T3, T4 |
 | **Part B** | **Design with AI** | | | |
-| 6 | Target 1: an on-device assistant under a memory and energy budget | Choose model, precision and engine placement to meet a latency target at the lowest energy | Best configuration per device; decision log | T1, T3 |
+| 6 | Target 1: an on-device assistant under a memory and energy budget | Choose model, precision and context length to meet a latency target at the lowest energy | Best configuration per device; decision log | T1, T3 |
 | 7 | Target 2: meet a serving SLA on one node | Derive requirements from the SLA, then find the configuration with the best goodput above a quality floor | Best configuration per tier; decision log | T4, T3 |
 | 8 | Target 3: design a fleet; showcase | Design a multi-GPU fleet under SLA, cost, energy and failure constraints, and prove a slice of it | Goodput per dollar; design doc; showcase talk | T4 |
 
@@ -236,7 +236,7 @@ No device? AMD cloud access covers every week. Supported hardware list: **TBD**.
 - Tensor, pipeline, data and expert parallelism as trade-offs; hot experts in MoE; separating prefill from decode
 - Scaling efficiency: the point beyond which more GPUs make a job slower
 - Cost: price per GPU-hour, cost per million tokens, and why utilisation dominates it
-- Energy and carbon: joules per token on a laptop NPU, integrated GPU and cloud GPU; grid carbon intensity
+- Energy and carbon: joules per token on a laptop, Ryzen AI Max and a cloud GPU; grid carbon intensity
 - Reliability at scale: failure rates, checkpoint intervals and goodput
 
 **Readings**
@@ -244,9 +244,9 @@ No device? AMD cloud access covers every week. Supported hardware list: **TBD**.
 - Shoeybi et al., "Megatron-LM" (2019); Zhong et al., "DistServe" (2024)
 - RCCL documentation and rccl-tests
 
-**Lab:** Sweep all-reduce message sizes with rccl-tests on a multi-GPU node and fit α and β. Use them to predict at what GPU count tensor parallelism stops helping for one model, then check two points. Measure joules per token for the same small model on the T1 NPU, the T1 integrated GPU and T4, and compute cost per million tokens on T4.
+**Lab:** Sweep all-reduce message sizes with rccl-tests on a multi-GPU node and fit α and β. Use them to predict at what GPU count tensor parallelism stops helping for one model, then check two points. Measure joules per token for the same small model on T1, T3 and T4, and compute cost per million tokens on T4.
 
-**Aha moments:** More GPUs made p99 worse. The laptop NPU is the slowest option but uses the least energy per token.
+**Aha moments:** More GPUs made p99 worse. The slowest device is not always the one that uses the least energy per token.
 
 **Case cards:** Scale-out, cost and energy cases. Judge the AI's recommendations.
 
@@ -258,7 +258,7 @@ No device? AMD cloud access covers every week. Supported hardware list: **TBD**.
 
 **Brief:** A fixed on-device assistant workload trace, a latency target (time to first token and time per output token, **TBD**), a memory cap that leaves room for other applications, and a quality floor on a fixed evaluation set (**TBD**). The objective is the lowest energy per request.
 
-**You may change:** model and size, precision, context length, which engine (NPU, integrated GPU, CPU) runs prefill and decode where the runtime allows, and speculative decoding with a small draft model.
+**You may change:** model and size, precision, KV-cache precision, context length, and speculative decoding with a small draft model.
 
 **You may not change:** the trace, the latency target, the memory cap or the evaluation set.
 
