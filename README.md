@@ -2,48 +2,71 @@
 
 中文 | [English](./README_en.md)
 
-**在 AMD 硬件上学习机器学习系统：先预测性能，再真机实测，最后与 AI 协作把系统做得更好。**
+**在 AMD 硬件上学习机器学习系统：为整个系统建模，在真机上验证模型，再与 AI 协作设计出更好的系统。**
 
-hello-mlsys 是一个为期 8 周的社区学习计划。每周你都要先预测一个 ML 工作负载的性能，再在真实的 AMD 硬件上测量它（从 Ryzen AI 笔记本到 Instinct 云端 GPU），并解释预测与实测之间的差距。后半程，你将与 AI 组队完成固定的工程目标，所有成绩都在 AMD 硬件上评测。
+hello-mlsys 是一个为期 8 周的社区学习计划，关注的是**系统**，而不是单个工具或单个算子。研究对象始终是整个系统：**模型 × 硬件 × 配置 × 负载**，以延迟目标、成本和能耗来衡量。每周你都要先预测系统的表现，再在真实的 AMD 硬件上测量（从 Ryzen AI 笔记本到 Instinct 云端 GPU），用实测结果校准你的模型，然后决定下一个实验。后半程，你将与 AI 组队完成固定的设计目标，所有成绩都在 AMD 硬件上评测。
 
 > 状态：课程设计阶段。标注 **待定** 的内容将在首期开营前确认。
 
-## 为什么是 hello-mlsys
+## hello-mlsys 的定位
 
-| 项目 | 教什么 | 与 hello-mlsys 的关系 |
-| --- | --- | --- |
-| [hello-rocm](https://github.com/datawhalechina/hello-rocm) | 用好 AMD GPU：环境配置、模型部署、微调、HIP 算子 | 作为环境配置与部署部分的阅读材料 |
-| [hello-gpu](https://github.com/datawhalechina/hello-gpu) | AMD 上的 GPU 算子编程 | 作为体系结构与算子部分的阅读材料 |
-| [MLSys·im](https://github.com/harvard-edge/cs249r_book)（CS249r） | 用模拟器预测系统性能 | 用它做预测，再在真机上验证 |
-| **hello-mlsys** | **从整体上分析 ML 系统，并引导 AI 改进系统** | 把三者串起来：预测、实测、解释、决策 |
+几个项目分别处在不同层次，hello-mlsys 从其他项目止步的地方开始。
 
-### 与 MLSys·im 的区别
+| 项目 | 研究对象 | 核心问题 | hello-mlsys 如何使用它 |
+| --- | --- | --- | --- |
+| [hello-rocm](https://github.com/datawhalechina/hello-rocm) | 一台 AMD 设备上的一个模型 | "如何在 AMD 上安装、部署和微调？" | 作为环境配置的前置要求；我们不重复讲安装和部署 |
+| [hello-gpu](https://github.com/datawhalechina/hello-gpu) | 一个算子 | "如何让这个算子在 AMD GPU 上跑得更快？" | 作为可选背景；我们把算子当作黑盒，只关心实测效率 |
+| [MLSys·im](https://github.com/harvard-edge/cs249r_book/tree/dev/mlsysim)（CS249r） | 任意系统，纯解析建模，无需硬件 | "理论上这个系统会撞上哪堵墙？" | 作为预测引擎；我们在 AMD 硬件上校准它 |
+| **hello-mlsys** | **真实 AMD 硬件上的整个系统** | **"哪种设计能以最低的成本和能耗满足 SLA？如何证明？"** | 把预测、实测和设计决策串起来 |
 
-MLSys·im 是一个优秀的性能预测工具，hello-mlsys 把它作为起点，并在四个方面更进一步：
+### hello-mlsys 不教什么
+
+为了不重复已有的优秀内容：
+
+| 本项目不涉及 | 请参考 |
+| --- | --- |
+| 安装 ROCm、驱动和 PyTorch；逐个框架的部署教程（vLLM、llama.cpp、Ollama、LM Studio、Lemonade） | [hello-rocm](https://github.com/datawhalechina/hello-rocm) 00-environment 与 01-deploy |
+| 微调流程（LoRA 脚本、多卡训练脚本） | [hello-rocm](https://github.com/datawhalechina/hello-rocm) 02-fine-tune |
+| 深入的 GPU 体系结构、HIP 与 Triton 编程、算子级性能分析、编写与融合算子、用 Agent 优化算子 | [hello-gpu](https://github.com/datawhalechina/hello-gpu) |
+
+所有实验都直接使用现成的运行时（PyTorch、vLLM、llama.cpp 和 AMD 算子库）。如果某个实验需要用到上述项目中的技能，我们会链接到具体章节作为前置要求，而不是重新讲一遍。
+
+### 从 MLSys·im 借鉴了什么，又增加了什么
+
+MLSys·im 是一个从第一性原理出发的解析建模框架，核心思想是：每个 ML 系统都会撞上某一堵"墙"。我们直接采用了它的几个教学思路：
+
+- **用"墙"作为共同语言**：每一次诊断都要说出起约束作用的那堵墙：算力、内存带宽、内存容量、通信、软件开销、排队、成本或能耗。
+- **铁律（Iron Law）**：性能可以分解为几个相乘的因子（设备数、峰值速率、利用率、扩展效率、有效时间占比），每一种优化都恰好作用于其中一项。
+- **先预测，再揭晓**：每个练习都从一份书面预测开始；课程围绕精心设计的"顿悟时刻"展开，让直觉在这些地方被打破。
+- **逆向建模**：从 SLA 出发，倒推出所需的硬件和配置，而不是把所有方案都跑一遍基准测试。
+- **敏感性分析**：把每个参数稍作改变，看哪个对结果影响最大，那就是下一个该调的旋钮。
+- **经济性与可持续性**：单位 token 成本、单位 token 能耗和碳排放都是设计约束，而不是事后才考虑的问题。
+
+在此基础上，我们在四个方面更进一步：
 
 | | MLSys·im | hello-mlsys |
 | --- | --- | --- |
-| **交互性** | 调参数、看模拟结果 | 每一步都有反馈：预测 → AMD 真机实测 → 解释差距 → 选择下一个实验；案例卡让你在结果揭晓前先下判断 |
-| **AI 能力** | 无 | 在 Lumid 中内置 AI 编程与方案规划；AI 给出诊断、设计和下一步实验建议，由你评判取舍 |
-| **优化空间** | 分析给定配置的瓶颈 | 真正动手优化：算子代码、量化、上下文长度、并发、投机解码、并行方式、多卡部署，并在 AMD 硬件上看到真实收益 |
-| **人机协作** | 无 | Part B 以人机组队为核心：人设定目标与约束、验证正确性与质量、做最终决策；AI 负责提方案、写代码、探索设计空间；决策日志纳入考核 |
+| **真实基准** | 纯解析模型；其文档称校准良好的情况误差在 ±15–30%，生产环境的推理服务可能慢 1.5–2 倍 | 每个预测都在 AMD 硬件上验证。你要测出差距，并为每个硬件档位拟合 **AMD 校准参数**（利用率、带宽效率、固定开销）。硬件库中缺少的 AMD 设备会被补充进去，并提交给上游 |
+| **AMD 特有的系统问题** | 以数据中心 GPU 为主 | 只有在 AMD 产品线上才会出现的问题：同一颗笔记本芯片上 NPU、集成显卡与 CPU 如何分工；Ryzen AI Max 上 CPU 与 GPU 共享的大内存（有容量但带宽有限）；Instinct 上的超大 HBM（大模型单卡即可放下，无需张量并行） |
+| **真正动手优化** | 分析给定配置 | 真正改动系统（精度、上下文、批处理、投机解码、并行方式、放置方式、档位组合），看到真实的收益或损失 |
+| **人机协作** | 无 | AI 提出系统设计和下一步实验；由你设定约束、用模型剪枝、在硬件上验证并做出决策。决策日志纳入考核 |
 
-简而言之：MLSys·im 教你**预测**系统，hello-mlsys 教你**与 AI 一起优化**系统，并在真实硬件上验证。
+简而言之：hello-rocm 教你在 AMD 上**跑起来**，hello-gpu 教你把**一个算子**做快，MLSys·im 教你**预测**系统，hello-mlsys 教你与 AI 一起**设计并证明一个完整的系统**，并在 AMD 硬件上验证。
 
 ## 学习目标
 
 完成本计划后，你将能够：
 
-1. **预测**：在运行之前，从第一性原理出发并借助模拟器，估算 ML 工作负载的延迟、吞吐和显存占用。
-2. **实测与解释**：用性能分析工具在 AMD 硬件上测量同一工作负载，并书面解释实测与预测为何不同。
-3. **诊断**：在从笔记本到 GPU 集群的各类设备上，判断工作负载的瓶颈是算力、内存带宽、内存容量还是通信。
-4. **评判 AI**：依据证据评估 AI 给出的诊断或设计，并识别它何时出错。
-5. **引导 AI 队友**：面对固定目标，设定目标与约束，引导 AI 完成设计与实现，验证正确性与质量，并说明每一个决策的理由。
+1. **预测**：在运行之前，用粗略估算和模拟器估计 ML 系统的延迟、吞吐、显存、成本和能耗。
+2. **校准**：在 AMD 硬件上测量同一系统，分析时间花在了哪里，并拟合校准参数，让下一次预测更准。
+3. **诊断**：在从笔记本到多卡节点的各类设备上，说出系统撞上的是哪堵墙：算力、带宽、容量、通信、开销、排队、成本还是能耗。
+4. **逆向设计**：从 SLA、预算和能耗上限出发，推算所需的硬件和配置，并排除不可行的设计。
+5. **引导 AI 队友**：依据证据评判 AI 给出的诊断或设计，识别它钻指标空子的行为，并书面说明每一个决策的理由。
 
 ## 适合谁
 
-- 会用 PyTorch 训练或运行模型、希望理解模型在硬件上如何运行的学生和工程师。
-- **前置要求**：Python、PyTorch 基础、Linux 基础、能阅读英文文档。
+- 已经会用 PyTorch 运行模型、希望从整体上分析系统而不是单个算子的学生和工程师。
+- **前置要求**：Python、PyTorch 基础、Linux 基础、能阅读英文文档。你需要能在 AMD 设备上运行一个 LLM（或先完成 hello-rocm 的环境配置章节）。**不需要会写算子。**
 - **无需自备 GPU**：提供 AMD 云端算力。
 - **时间投入**：第 1–5 周每周约 6–8 小时，第 6–8 周每周约 10 小时。
 
@@ -52,39 +75,39 @@ MLSys·im 是一个优秀的性能预测工具，hello-mlsys 把它作为起点�
 每周都遵循同一个循环：
 
 ```
-预测（模拟器）→ 构建（AI 辅助）→ 实测（AMD 硬件）→ 解释差距 → 决定下一个实验
+预测（粗略估算 + 模拟器）→ 实测（AMD 硬件）→ 校准（修正模型）→ 决定下一个实验
 ```
 
-**Part A：学习与评判（第 1–5 周，个人完成）**。每周包括阅读材料、一个动手实验和一组 **案例卡**。每张案例卡展示一次真实运行：预测值、AMD 实测值、性能分析 trace，以及一份 AI 给出的诊断（有时是错的）。你需要找出瓶颈，判断 AI 是否正确，并在结果揭晓前预测某项改动的效果。
+**Part A：建模与校准（第 1–5 周，个人完成）**。每周包括阅读材料、一个动手实验和一组 **案例卡**。每张案例卡展示一次真实的系统运行：预测值、AMD 实测值、时间线，以及一份 AI 给出的诊断（有时是错的）。你需要说出撞上的是哪堵墙，判断 AI 是否正确，并在结果揭晓前预测某项改动的效果。在 Part A 中，你会逐步建立一套针对自己 AMD 硬件的校准模型，并在 Part B 中使用它。
 
-**Part B：与 AI 组队（第 6–8 周，个人完成）**。你与 AI 一对一协作，完成三个固定目标，所有项目均为个人项目。每个目标都按以下步骤进行：
+**Part B：与 AI 一起设计（第 6–8 周，个人完成）**。你与 AI 一对一协作，完成三个固定的设计目标，所有项目均为个人项目。每个目标都按以下步骤进行：
 
 1. **界定**：由你自己设定目标、约束和质量底线。
-2. **规划**：与 AI 一起制定方案，选择、修改或否决它的提议。
-3. **剪枝**：用模拟器排除不可行的设计。
-4. **构建**：由 AI 编写代码，你对照测试进行审查。
-5. **实测**：在 AMD 硬件上测量。
+2. **逆向推导**：在做任何尝试之前，先推算 SLA 和预算提出了什么要求。
+3. **规划**：与 AI 一起制定方案，选择、修改或否决它的提议。
+4. **剪枝**：用你校准过的模型排除不可行的设计。
+5. **实测**：在 AMD 硬件上测量剩下的候选方案，每次测量前先写下预测。
 6. **迭代**：选择下一个实验，并记录理由。
 
-每个决策都会记入 **决策日志**，与最终成绩一起评分。
+每个决策都会记入 **决策日志**，与最终成绩和预测准确度一起评分。
 
 ## 各方分工
 
 | 角色 | 职责 |
 | --- | --- |
-| **AMD** | 提供真实基准。你分析的每个案例、获得的每个成绩都来自 AMD 硬件。AMD 同时提供 ROCm 软件栈、云端算力额度、算子库基线、工程师答疑和结营评审。 |
-| **模拟器** | 快速给出预测，并排除不可行的设计。 |
-| **[Lumid](https://lum.id)** | 实验环境：案例卡、测量工作流、AI 编程、下一步实验建议和决策日志。 |
-| **你** | 界定目标、评判证据、验证结果、做出决策。 |
+| **AMD** | 提供真实基准。你分析的每个案例、获得的每个成绩都来自 AMD 硬件。AMD 同时提供 ROCm 软件栈、云端算力额度、工程师答疑和结营评审。 |
+| **模拟器（MLSys·im）** | 快速给出预测、做敏感性分析，并排除不可行的设计。 |
+| **[Lumid](https://lum.id)** | 实验环境：案例卡、测量工作流、校准记录、AI 规划与编程、下一步实验建议和决策日志。 |
+| **你** | 界定目标、评判证据、校准模型、验证结果、做出决策。 |
 
 ## AMD 硬件档位
 
-| 档位 | 硬件 | 用于教学 |
+| 档位 | 硬件 | 引出的系统问题 |
 | --- | --- | --- |
-| T1 | Ryzen AI PC（NPU + 集成显卡） | 端侧异构计算、能耗 |
-| T2 | Radeon 独立显卡 | 算子开发、wave32/64、消费级显存限制 |
-| T3 | Ryzen AI Max（CPU 与 GPU 共享大内存） | 在个人设备上运行大模型 |
-| T4 | Instinct MI300 级（云端） | 高带宽显存、多卡扩展 |
+| T1 | Ryzen AI PC（NPU + 集成显卡 + CPU） | 哪个计算单元该跑哪个阶段；单位 token 能耗；紧张的内存 |
+| T2 | Radeon 独立显卡 | 消费级显存限制；量化能换来什么；单卡推理服务 |
+| T3 | Ryzen AI Max（CPU 与 GPU 共享大内存） | 容量充足但带宽不匹配：大模型能装下，但解码能有多快？ |
+| T4 | Instinct MI300 级（云端） | 大容量高带宽 HBM；单卡与多卡设计的取舍；规模化下的单位 token 成本 |
 
 没有设备？AMD 云端算力可覆盖全部 8 周。支持的硬件清单：**待定**。
 
@@ -92,141 +115,158 @@ MLSys·im 是一个优秀的性能预测工具，hello-mlsys 把它作为起点�
 
 | 周次 | 主题 | 本周结束时，你能够…… | 提交内容 | AMD |
 | --- | --- | --- | --- | --- |
-| **Part A** | **学习与评判** | | | |
-| 1 | 系统思维：预测与实测 | 预测同一模型在 PC 和云端的速度，并解释实测为何不同 | 差距报告；3 张案例卡 | T1, T4 |
-| 2 | GPU 体系结构与 Roofline | 判断一个工作负载在你的设备上是算力受限还是访存受限 | 实测 Roofline；案例卡 | T1–T3 |
-| 3 | 算子开发与可移植性 | 把一个 CUDA 算子移植到 AMD、完成调优，并解释与算子库的差距 | 通过测试的算子；案例卡 | T2, T4 |
-| 4 | LLM 推理与显存 | 预测哪些模型能在哪些设备上运行，以及 KV Cache、量化和投机解码如何影响速度 | "什么能装进哪里"矩阵；案例卡 | T3, T4 |
-| 5 | 分布式推理服务与尾延迟 | 解释服务系统为何达不到 p99 目标，并评判改进方案 | p99 分析报告；**Part A 关卡** | T4 |
-| **Part B** | **与 AI 组队** | | | |
-| 6 | 目标 1：优化 GPU 算子 | 引导 AI 写出更快的算子，同时保证正确性 | 在隐藏输入上评测的算子；决策日志 | T2, T4 |
-| 7 | 目标 2：单机满足推理服务 SLA | 选择模型规模、量化、上下文长度、并发和投机解码，在质量底线之上满足 SLA | 各档位的最佳配置；决策日志 | T4, T3 |
-| 8 | 目标 3：多卡扩展与结营展示 | 把单机方案扩展到多卡，并论证其成本 | 单位成本下的结果；设计文档；结营展示 | T4 |
+| **Part A** | **建模与校准** | | | |
+| 1 | 粗略估算与"墙" | 仅凭规格表预测模型在笔记本和云端的 prefill 与 decode 速度，并解释差距 | 差距报告；第一条校准记录；案例卡 | T1, T4 |
+| 2 | 时间花在了哪里？在 AMD 上校准 | 把模型运行时间拆分为计算、访存、开销和空闲，并拟合各档位的校准参数 | 校准参数及其留出集误差；案例卡 | T1–T4 |
+| 3 | 显存是一项设计决策 | 预测推理和训练中什么能装进哪里，并说明精度改变的是设计本身而不只是速度 | "什么能装进哪里"矩阵；训练显存预测；案例卡 | T2, T3, T4 |
+| 4 | 推理服务是一个排队系统 | 预测推理服务的吞吐拐点和 p99，并推算 SLA 提出的要求 | p99 与拐点报告；案例卡 | T4 |
+| 5 | 扩展、成本与能耗 | 为通信、单位 token 成本和单位 token 能耗建模，找到增加 GPU 不再有用的临界点 | 扩展与成本备忘录；**Part A 关卡** | T1, T4 |
+| **Part B** | **与 AI 一起设计** | | | |
+| 6 | 目标 1：在内存与能耗预算内的端侧助手 | 选择模型、精度和计算单元分工，在满足延迟目标的前提下使能耗最低 | 各设备的最佳配置；决策日志 | T1, T3 |
+| 7 | 目标 2：单机满足推理服务 SLA | 从 SLA 倒推要求，再在质量底线之上找到 goodput 最高的配置 | 各档位的最佳配置；决策日志 | T4, T3 |
+| 8 | 目标 3：集群设计与结营展示 | 在 SLA、成本、能耗和故障约束下设计多卡集群，并实测验证其中一部分 | 单位成本下的 goodput；设计文档；结营展示 | T4 |
 
 ### 每周内容
 
 <details>
-<summary><b>第 1 周：系统思维：预测与实测</b></summary>
+<summary><b>第 1 周：粗略估算与"墙"</b></summary>
 
 **主题**
-- 为什么性能是系统问题：算力、内存带宽、内存容量、通信四类限制
-- 延迟与吞吐
-- 粗略估算：一次前向计算的 FLOPs 与数据搬运量
-- 模拟器如何预测，以及真实运行为何偏离：kernel 启动开销、框架开销、频率、预热
-- 正确的测量方法：预热、重复测量、方差
+- 各堵"墙"：算力、内存带宽、内存容量、通信、软件开销、排队、成本和能耗
+- 铁律：时间 = 工作量 ÷（设备数 × 峰值速率 × 利用率 × 扩展效率 × 有效时间占比）
+- 规格表估算：prefill 的计算量约为 2 × 参数量 × token 数；batch 为 1 时的 decode 速度约为 带宽 ÷ 权重字节数
+- MLSys·im 入门：硬件库与模型库、第一次 `solve`，以及它建模和不建模的内容
+- 诚实看待精度：模拟器擅长判断瓶颈和比较方案，对绝对延迟的预测则较弱
 
 **阅读**
 - [mlsys-course 第 0 章：系统思维](https://yuuinih.github.io/mlsys-course/modules/00-systems-thinking.html)
+- [MLSys·im](https://github.com/harvard-edge/cs249r_book/tree/dev/mlsysim)：入门指南与速查表
 - [mlsysbook.ai](https://mlsysbook.ai) 第一卷：导论章节
-- [hello-rocm](https://github.com/datawhalechina/hello-rocm)：基础环境配置（ROCm、PyTorch、uv）
+- Williams、Waterman 与 Patterson，"Roofline: An Insightful Visual Performance Model"（2009）
 
-**实验**：安装 ROCm 和 PyTorch。分别在个人设备（T1 或 T3）和云端 GPU（T4）上运行一个小型 LLM 的推理。每次运行前先用模拟器预测，再实测。
+**实验**：使用现成的运行时（环境配置参考 hello-rocm），分别在个人设备（T1 或 T3）和云端 GPU（T4）上运行一个小型 LLM。每次运行前，分别按两台设备的算力之比和带宽之比，各预测一次 prefill 和 decode 速度，然后实测。
 
-**案例卡**：3 张入门卡，练习对照预测解读实测结果。
+**顿悟时刻**：云端 GPU 的算力远超笔记本，但 decode 速度的差距却接近两者的带宽之比。
 
-**提交**：一页差距报告，包括你的预测、实测结果，以及造成差异的三个最主要原因。
+**案例卡**：3 张入门卡，练习对照预测解读实测结果，并说出撞上的是哪堵墙。
+
+**提交**：一页差距报告（预测、实测，以及造成差异的三个最主要原因），以及你的第一条校准记录：每台设备的实测值 ÷ 预测值。
 </details>
 
 <details>
-<summary><b>第 2 周：GPU 体系结构与 Roofline</b></summary>
+<summary><b>第 2 周：时间花在了哪里？在 AMD 上校准</b></summary>
 
 **主题**
-- AMD GPU 的基本组成：计算单元（CU）、wavefront（32 宽与 64 宽）、寄存器、LDS 片上存储
-- 矩阵单元：CDNA（Instinct）上的 MFMA 与 RDNA（Radeon）上的 WMMA；XDNA NPU 作为另一类加速器
-- 存储系统：Instinct 上的 HBM 与 Ryzen AI Max 上与 CPU 共享的 LPDDR5X
-- 峰值算力、峰值带宽、算术强度与 Roofline 模型
-- 用 rocprof 解读性能分析 trace
+- 拆分整个模型的运行时间：计算、访存、主机与框架开销、kernel 启动间隙、空闲
+- 模型级利用率：MFU（模型算力利用率）与 MBU（模型带宽利用率）
+- 用 PyTorch profiler 解读模型级时间线。目的是归因，而不是调优算子；算子级性能分析请参考 hello-gpu 第一部分
+- 系统层面降低开销的手段：批处理、图捕获、`torch.compile`
+- 校准：拟合各档位的效率参数，在留出数据上检验，并如实报告误差
+- 敏感性分析：哪个参数对预测影响最大
 
 **阅读**
-- [hello-gpu](https://github.com/datawhalechina/hello-gpu)：第一部分第 3 章，AMD GPU 体系结构
-- [mlsysbook.ai](https://mlsysbook.ai) 第一卷：硬件加速
-- ROCm 文档：rocprof 与 rocprof-compute
+- [MLSys·im](https://github.com/harvard-edge/cs249r_book/tree/dev/mlsysim)：关于效率与实测校准的文档
+- [mlsysbook.ai](https://mlsysbook.ai) 第一卷：硬件加速与基准测试
+- PyTorch profiler 文档
 
-**实验**：编写内存拷贝和 GEMM 尺寸扫描的微基准测试。绘制设备的实测 Roofline 并与规格对比，再把 GEMM、softmax 和 LayerNorm 标注在图上。
+**实验**：在两个档位上，对同一模型扫描不同的 batch 大小和序列长度。用一半数据为每个档位拟合校准参数（MFU、MBU 和每步固定开销），再预测另一半。把模拟器硬件库中缺少的 AMD 设备（例如 Radeon 或 Ryzen AI Max）补充进去，并为每个数值注明来源。
 
-**案例卡**：AI 根据 trace 判断算子是算力受限还是访存受限。找出哪些判断是错的，并说明原因。
+**顿悟时刻**：在高速 GPU 上、batch 较小时，占时间最多的既不是计算也不是访存，而是开销。
 
-**提交**：Roofline 图，标注三个算子，并简要解释与规格值的差距。
+**案例卡**：AI 根据时间线把一次慢速运行归咎于某堵墙。找出哪些归因是错的，并说明原因。
+
+**提交**：你的校准参数、它在留出数据上的误差，以及一张敏感性表格，说明每个档位上哪个参数最关键。
 </details>
 
 <details>
-<summary><b>第 3 周：算子开发与可移植性</b></summary>
+<summary><b>第 3 周：显存是一项设计决策</b></summary>
 
 **主题**
-- HIP 编程模型：grid、block、wavefront
-- 访存合并、LDS 分块、bank 冲突、占用率
-- ROCm 上的 Triton；用 hipify 移植 CUDA 代码
-- 默认假设 warp 为 32 宽的代码，在 64 宽 wavefront 上为何会出错或变慢
-- 以 AMD 算子库（rocBLAS、hipBLASLt、Composable Kernel）为基线；带容差的正确性测试
+- 推理显存模型：权重、KV Cache、激活值、运行时工作区；KV Cache 如何随上下文长度和 batch 增长
+- 训练显存模型：权重、梯度、优化器状态、激活值；分片（ZeRO 与 FSDP）、激活重计算、LoRA
+- 精度是一项架构决策：FP8 或 INT4 可能决定模型能否装进单卡，从而改变整个设计，而不只是速度
+- 混合专家模型（MoE）：总参数量与激活参数量，以及各自在容量和带宽上的代价
+- AMD 的内存谱系：消费级小显存、Ryzen AI Max 上的大共享内存、Instinct 上的大容量 HBM；容量和带宽是两堵不同的墙
 
 **阅读**
-- [hello-gpu](https://github.com/datawhalechina/hello-gpu)：HIP 与 Triton 章节
-- [hello-rocm](https://github.com/datawhalechina/hello-rocm)：算子优化（03-infra）
-- [llm-algo-leetcode](https://github.com/datawhalechina/llm-algo-leetcode)：Triton 练习
+- [mlsysbook.ai](https://mlsysbook.ai) 第一卷：模型优化与训练
+- Kwon 等，"Efficient Memory Management for LLM Serving with PagedAttention"（2023）
+- Rajbhandari 等，"ZeRO: Memory Optimizations Toward Training Trillion Parameter Models"（2020）
+- [MLSys·im](https://github.com/harvard-edge/cs249r_book/tree/dev/mlsysim)：训练显存模型，以及 "How much memory does Llama 3 need?"
 
-**实验**：把一个 CUDA 版的 RMSNorm 或 softmax 算子移植到 AMD。先保证正确，再调优分块大小，并与算子库版本对比。
+**实验**：构建"什么能装进哪里"矩阵：3 种模型规模（其中一个为 MoE）× 3 种精度 × T2、T3、T4 三个档位。对每个格子，先预测能否装下、固定上下文长度下的最大 batch 以及 decode 速度，再实测。然后预测一次小规模微调在有无激活重计算和 LoRA 时的峰值显存，并实测。
 
-**案例卡**：移植后变慢的算子。从 trace 中找出原因。
+**顿悟时刻**：一个"装得下"的模型，一旦并发增加、KV Cache 变大，就会显存溢出。最大的模型能装进 Ryzen AI Max，但能不能用取决于带宽。
 
-**提交**：通过测试的算子、它达到算子库速度的百分比，以及对剩余差距的简要说明。
+**案例卡**：显存溢出与量化的实验结果。评判 AI 对每个结果的解释。
+
+**提交**：完整的矩阵（包含预测值与实测值）、训练显存预测，并解释最大的几处差距。
 </details>
 
 <details>
-<summary><b>第 4 周：LLM 推理与显存</b></summary>
+<summary><b>第 4 周：推理服务是一个排队系统</b></summary>
 
 **主题**
-- Prefill 与 Decode：为什么 prefill 通常是算力受限，而 decode 是访存受限
-- KV Cache 大小，以及如何根据模型结构、上下文长度和 batch 计算它
-- Paged Attention 与连续批处理
-- 权重量化（FP8、基于 AWQ 或 GPTQ 的 INT4）与 KV Cache 量化，以及它们对质量的影响
-- 投机解码：草稿模型、接受率，以及何时有效
+- SLO：首 token 延迟、单 token 输出时间、端到端延迟；p50 与 p99
+- Prefill 与 Decode 是共享一块 GPU 的两台不同"机器"；连续批处理与分块 prefill
+- 排队论基础：利用率、Little 定律、延迟为何在"拐点"附近暴涨，以及 SLO 下的 goodput（满足 SLO 的有效吞吐）
+- 前缀缓存与投机解码作为系统权衡：命中率、接受率，以及各自的代价
+- 逆向建模：从延迟目标倒推所需的带宽、显存和并发
 
 **阅读**
-- [mlsysbook.ai](https://mlsysbook.ai) 第一卷：模型优化与推理服务
-- [hello-rocm](https://github.com/datawhalechina/hello-rocm)：vLLM 与 llama.cpp 部署指南
-- vLLM 文档：量化与投机解码
+- Yu 等，"Orca: A Distributed Serving System for Transformer-Based Generative Models"（2022）
+- Agrawal 等，"Taming Throughput-Latency Tradeoff in LLM Inference with Sarathi-Serve"（2024）
+- Leviathan 等，"Fast Inference from Transformers via Speculative Decoding"（2023）
+- [MLSys·im](https://github.com/harvard-edge/cs249r_book/tree/dev/mlsysim)：推理服务容量模型
 
-**实验**：构建"什么能装进哪里"矩阵：3 种模型规模 × 3 种精度，分别在 T3 和 T4 上运行。先预测显存占用、首 token 延迟和单 token 输出时间，再实测。
+**实验**：逐步提高请求到达率，对单卡推理服务做压力测试。测量之前，先用校准过的服务时间和排队模型预测拐点位置。然后选择一个旋钮（分块 prefill、前缀缓存或投机解码），预测它对 p99 和 goodput 的影响，再实测。
 
-**案例卡**：投机解码与量化的实验结果。评判 AI 对每个结果的解释。
+**顿悟时刻**：利用率达到 80% 时，系统平均指标看起来一切正常，p99 却早已违反 SLO。
 
-**提交**：完整的矩阵，包含预测值与实测值，并解释最大的几处差距。
+**案例卡**："吞吐提高了，p99 反而更差"等案例。评判 AI 提出的三个修复方案。
+
+**提交**：一份报告，包括预测与实测的拐点、p99 曲线，以及你所选旋钮的实验结果。
 </details>
 
 <details>
-<summary><b>第 5 周：分布式推理服务与尾延迟</b></summary>
+<summary><b>第 5 周：扩展、成本与能耗</b></summary>
 
 **主题**
-- 集合通信：用 RCCL 实现 all-reduce 与 all-gather；GPU 之间的链路带宽
-- 张量并行、流水线并行与多副本的取舍
-- SLO：首 token 延迟与单 token 输出时间，p50 与 p99
-- 负载下的排队、吞吐"拐点"与 goodput（满足 SLO 的有效吞吐）
-- Prefill 与 Decode 分离，以及请求路由
+- 集合通信：all-reduce 的 α–β 代价模型；节点内与节点间链路
+- 张量并行、流水线并行、数据并行与专家并行之间的取舍；MoE 中的热点专家；Prefill 与 Decode 分离
+- 扩展效率：超过某个临界点后，增加 GPU 反而让任务更慢
+- 成本：每 GPU 小时价格、每百万 token 成本，以及利用率为何起决定作用
+- 能耗与碳排放：笔记本 NPU、集成显卡和云端 GPU 上的单位 token 能耗（焦耳）；电网碳强度
+- 大规模下的可靠性：故障率、checkpoint 间隔与有效时间占比
 
 **阅读**
-- [mlsysbook.ai](https://mlsysbook.ai) 第二卷：集合通信与大规模推理
+- [mlsysbook.ai](https://mlsysbook.ai) 第二卷：集合通信、大规模推理、可持续 AI
+- Shoeybi 等，"Megatron-LM"（2019）；Zhong 等，"DistServe"（2024）
 - RCCL 文档与 rccl-tests
-- vLLM 文档：分布式推理服务
 
-**实验**：在多卡节点上用 rccl-tests 扫描不同消息大小的 all-reduce 性能。然后逐步提高请求到达率，对推理服务做压力测试，找到 p99 失守的位置。
+**实验**：在多卡节点上用 rccl-tests 扫描不同消息大小的 all-reduce 性能，拟合 α 与 β。用它们预测某个模型在多少张 GPU 时张量并行不再有收益，再实测两个点加以验证。分别在 T1 的 NPU、T1 的集成显卡和 T4 上测量同一小模型的单位 token 能耗，并计算 T4 上每百万 token 的成本。
 
-**案例卡**："加了 GPU 反而 p99 更差"等案例。评判 AI 提出的三个修复方案。
+**顿悟时刻**：加了 GPU，p99 反而更差。笔记本 NPU 是最慢的选项，但单位 token 能耗最低。
 
-**提交**：p99 分析报告。然后完成 Part A 关卡。
+**案例卡**：扩展、成本与能耗相关的案例。评判 AI 给出的建议。
+
+**提交**：一页扩展与成本备忘录。然后完成 Part A 关卡。
 </details>
 
 <details>
-<summary><b>第 6 周：目标 1，优化 GPU 算子</b></summary>
+<summary><b>第 6 周：目标 1，在内存与能耗预算内的端侧助手</b></summary>
 
-**任务**：一个基线算子（融合注意力或量化 GEMM，**待定**），提供公开输入尺寸用于开发，另有隐藏尺寸用于评分。
+**任务**：一份固定的端侧助手负载 trace；延迟目标（首 token 延迟与单 token 输出时间，**待定**）；为其他应用预留空间的内存上限；以及在固定评测集上的质量底线（**待定**）。优化目标是单次请求能耗最低。
 
-**规则**：核心计算不得调用厂商算子库；结果须在容差范围内与参考实现一致。
+**可以调整**：模型及其规模、精度、上下文长度、由哪个计算单元（NPU、集成显卡、CPU）运行 prefill 和 decode（在运行时支持的范围内）、使用小型草稿模型的投机解码。
 
-**你的职责**：在 AI 追求速度的同时，守住正确性。
+**不可调整**：负载 trace、延迟目标、内存上限和评测集。
 
-**阅读**：回顾第 2–3 周；[hello-gpu](https://github.com/datawhalechina/hello-gpu) 优化章节。
+**你的职责**：分别在 T1 和 T3 上找到最佳配置，并解释两者为何不同。每次测量前记录你的能耗预测。
 
-**提交**：你的最佳算子（在隐藏尺寸上评测）以及决策日志。
+**阅读**：回顾第 1、3、5 周；Ryzen AI 上的运行时配置参考 hello-rocm 00-environment。
+
+**提交**：每台设备的最佳配置、实测的单次请求能耗与延迟，以及决策日志。
 </details>
 
 <details>
@@ -234,40 +274,41 @@ MLSys·im 是一个优秀的性能预测工具，hello-mlsys 把它作为起点�
 
 **任务**：一份固定的负载 trace；SLA 为 p99 首 token 延迟 < **X ms（待定）**、p99 单 token 输出时间 < **Y ms（待定）**；以及在固定评测集上的质量底线（**待定**）。
 
-**可以调整**：模型规模、量化、上下文长度、前缀缓存、分块 prefill、并发、KV Cache 显存占比、投机解码。
+**可以调整**：模型规模、精度、上下文长度、前缀缓存、分块 prefill、并发、KV Cache 显存占比、投机解码。
 
 **不可调整**：负载 trace、SLA 和评测集。
 
-**你的职责**：分别在 T4 和 T3 上找到最佳配置，并解释两者为何不同。质量底线排除了"选最小模型加最低精度"这种取巧做法。
+**你的职责**：从逆向建模开始：先推算 SLA 提出的要求，并在动用硬件之前用校准过的模型剪枝。然后分别在 T4 和 T3 上找到最佳配置，并解释两者为何不同。质量底线排除了"选最小模型加最低精度"这种取巧做法。
 
-**阅读**：回顾第 4–5 周；vLLM-ROCm 服务配置文档。
+**阅读**：回顾第 3–4 周。
 
-**提交**：每个档位的最佳配置、它在 SLA 下的 goodput，以及决策日志。
+**提交**：每个档位的最佳配置、它在 SLA 下的 goodput、你的预测准确度，以及决策日志。
 </details>
 
 <details>
-<summary><b>第 8 周：目标 3，多卡扩展与结营展示</b></summary>
+<summary><b>第 8 周：目标 3，集群设计与结营展示</b></summary>
 
-**任务**：在相同 SLA 下承载更重的负载 trace，并限制 GPU 数量和成本预算。
+**任务**：在相同 SLA 下承载更重的负载 trace，同时满足成本预算和能耗预算，并要求在一张 GPU 故障时仍能继续服务（goodput 可以降低）。
 
-**设计选择**：多副本还是张量并行、Prefill 与 Decode 分离、请求路由。
+**设计选择**：GPU 的数量与型号、多副本还是张量并行、Prefill 与 Decode 分离、请求路由、冗余。
 
-**你的职责**：在第 7 周方案的基础上扩展，并论证其成本。
+**你的职责**：用校准过的模型设计完整集群，然后在 T4 上实测其中具有代表性的一部分，证明你对这部分的预测是准确的。说出阻碍进一步改进的那项约束。
 
-**阅读**：回顾第 5 周；[mlsysbook.ai](https://mlsysbook.ai) 第二卷：大规模推理。
+**阅读**：回顾第 5 周；[mlsysbook.ai](https://mlsysbook.ai) 第二卷：大规模推理与可持续 AI。
 
-**提交**：单位成本下满足 SLA 的 goodput、两页设计文档、决策日志，以及一场简短的结营展示。
+**提交**：单位成本和单位能耗下满足 SLA 的 goodput、两页设计文档、决策日志，以及一场简短的结营展示。
 </details>
 
 ## 考核方式
 
-**Part A**：案例卡自动评分。实验报告需要包含明确的预测、实测结果以及对差距的解释。第 5 周的 **Part A 关卡** 是一组未见过的案例卡，须独立完成、不得使用 AI；通过后才能进入 Part B。
+**Part A**：案例卡自动评分。实验报告需要包含明确的预测、实测结果以及对差距的解释。校准参数按留出数据上的预测误差评分。第 5 周的 **Part A 关卡** 是一组未见过的案例卡，须独立完成、不得使用 AI；通过后才能进入 Part B。
 
-**Part B**：每个目标从两方面评分：在 AMD 硬件上测得的结果，以及你的决策日志。一份好的决策日志应体现你：
+**Part B**：每个目标从三方面评分：在 AMD 硬件上测得的结果、你在每次运行前写下的预测的准确度，以及你的决策日志。一份好的决策日志应体现你：
 
 - 在向 AI 要方案之前，自己设定了目标、约束和质量底线；
+- 在实测之前，先从 SLA 推算要求，并用模型剪枝；
 - 基于证据采纳或否决 AI 的提议，并发现了它钻指标空子的行为；
-- 在宣称任何加速之前，先验证了正确性和质量；
+- 在宣称任何加速或节省之前，先验证了质量；
 - 记录了预测的准确程度，并解释了预测失误的原因。
 
 **关于使用 AI**：除 Part A 关卡外，全程鼓励使用 AI。但你必须能解释并验证自己提交的一切内容。
@@ -278,13 +319,14 @@ MLSys·im 是一个优秀的性能预测工具，hello-mlsys 把它作为起点�
 - 至少完成 Part B 三个目标中的 2 个，且每个都附有决策日志。
 - 评审另一位学员的决策日志。
 
-**你将收获**：一套由差距报告和决策日志组成的作品集、在 AMD 硬件实测排行榜上的名次，以及结营证书。表现最好的学员将在结营展示中演讲，并有机会获得 AMD 奖品。
+**你将收获**：一套由差距报告、校准参数和决策日志组成的作品集、在 AMD 硬件实测排行榜上的名次，以及结营证书。表现最好的学员将在结营展示中演讲，并有机会获得 AMD 奖品。
 
 ## 快速开始
 
-1. 按照 [hello-rocm 环境配置指南](https://github.com/datawhalechina/hello-rocm) 配置 ROCm 和 PyTorch；没有支持的设备可使用 AMD 云端算力。
-2. 注册 Lumid 账号（**链接待定**），打开第 1 周实验。
-3. 加入学习群（**待定**）。
+1. 按照 [hello-rocm 环境配置指南](https://github.com/datawhalechina/hello-rocm) 确保能在 AMD 设备上运行 LLM；没有支持的设备可使用 AMD 云端算力。
+2. 安装模拟器：`pip install mlsysim`。
+3. 注册 Lumid 账号（**链接待定**），打开第 1 周实验。
+4. 加入学习群（**待定**）。
 
 ## 项目结构（规划中）
 
@@ -293,17 +335,18 @@ hello-mlsys/
 ├── README.md
 ├── README_en.md
 ├── docs/
-│   ├── week01-systems-thinking/       # 系统思维
-│   ├── week02-architecture-roofline/  # 体系结构与 Roofline
-│   ├── week03-kernels-portability/    # 算子与可移植性
-│   ├── week04-llm-inference-memory/   # LLM 推理与显存
-│   ├── week05-distributed-serving/    # 分布式推理服务
-│   ├── week06-target-kernel/          # 目标 1：算子优化
-│   ├── week07-target-sla-serving/     # 目标 2：SLA 推理服务
-│   └── week08-target-scale-out/       # 目标 3：多卡扩展
+│   ├── week01-napkin-math-walls/            # 粗略估算与"墙"
+│   ├── week02-time-attribution-calibration/ # 时间归因与校准
+│   ├── week03-memory-design/                # 显存设计
+│   ├── week04-serving-queueing/             # 推理服务与排队
+│   ├── week05-scale-cost-energy/            # 扩展、成本与能耗
+│   ├── week06-target-on-device/             # 目标 1：端侧助手
+│   ├── week07-target-sla-serving/           # 目标 2：SLA 推理服务
+│   └── week08-target-fleet/                 # 目标 3：集群设计
 ├── labs/            # 实验起始代码与测试
+├── calibration/     # AMD 校准参数，以及供模拟器使用的硬件库条目
 ├── case-cards/      # 案例卡索引（案例卡通过 Lumid 下发）
-├── targets/         # Part B 任务说明、基线、trace、评测集
+├── targets/         # Part B 任务说明、trace、评测集、评分
 └── assets/
 ```
 
@@ -311,18 +354,19 @@ hello-mlsys/
 
 - [x] 课程设计
 - [ ] 与 AMD 确认硬件清单与云端算力额度
+- [ ] T1–T4 的 AMD 硬件条目与首批校准参数，并提交给 MLSys·im 上游
 - [ ] 第 1–5 周实验与案例卡（每周约 10 张）
-- [ ] Part B 目标：基线、隐藏测试、trace、SLA 阈值、质量底线
+- [ ] Part B 目标：trace、SLA 阈值、能耗测量方法、质量底线
 - [ ] Lumid 实验应用与排行榜
 - [ ] 试点学期
 
 ## 参与贡献
 
-欢迎提交 Issue 和 PR，尤其是来自 AMD 真机运行的新案例卡、实验改进，以及在尚未覆盖的硬件上的测试结果。
+欢迎提交 Issue 和 PR，尤其是来自 AMD 真机运行的新案例卡、尚未覆盖的硬件上的校准数据，以及实验改进。
 
 ## 致谢
 
-hello-mlsys 建立在以下项目之上：[CS249r / MLSys·im](https://github.com/harvard-edge/cs249r_book)、[hello-gpu](https://github.com/datawhalechina/hello-gpu)、[hello-rocm](https://github.com/datawhalechina/hello-rocm)、[llm-algo-leetcode](https://github.com/datawhalechina/llm-algo-leetcode)、[mlsys-course](https://github.com/YuuinIH/mlsys-course)，以及 [新加坡国立大学机器学习系统课程](https://mlsys.io/MLsys_25Sem2.html)。硬件与云端算力由 AMD 提供。
+hello-mlsys 建立在 [CS249r / MLSys·im](https://github.com/harvard-edge/cs249r_book)、[mlsys-course](https://github.com/YuuinIH/mlsys-course) 和 [新加坡国立大学机器学习系统课程](https://mlsys.io/MLsys_25Sem2.html) 之上，并与 [hello-rocm](https://github.com/datawhalechina/hello-rocm)、[hello-gpu](https://github.com/datawhalechina/hello-gpu) 互为补充。硬件与云端算力由 AMD 提供。
 
 ## 许可证
 
